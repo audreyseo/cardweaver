@@ -1,5 +1,7 @@
 package org.audreyseo.cardweave
 
+import org.audreyseo.cardweave.cards.Card
+
 import scala.::
 
 /**

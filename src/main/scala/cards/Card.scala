@@ -1,4 +1,5 @@
 package org.audreyseo.cardweave
+package cards
 
 import scala.collection.immutable.HashMap
 import scala.io.AnsiColor
@@ -41,37 +42,26 @@ abstract class AbstractCard(numHoles: Int, num: Int, t: Twist, tcolors: ThreadCo
   assert(numHoles <= tcolors.length, s"Abstract card number of holes ${numHoles} should be <= length of colors ${tcolors}")
   var positions = List("A", "B", "C", "D", "E", "F", "G", "H").slice(0, numHoles)
   var positionsToColor = HashMap(positions.zip(tcolors):_*)
-}
-
-/**
-  * A typical 4-hole card
-  * @param num      the order of the card in the pattern (from left to right)
-  * @param t        the twist direction of the card
-  * @param A        the color in the A position
-  * @param B        the color in the B position
-  * @param C        the color in the C position
-  * @param D        the color in the D position
-  */
-class Card(num: Int, t: Twist, A: ThreadColor, B:ThreadColor, C: ThreadColor, D: ThreadColor) extends AbstractCard(4, num, t, A, B, C, D) {
-  var colors = List(A, B, C, D)
-  //var positions = List("A", "B", "C", "D")
   var twist = t
   var builtUpTwist = 0
+
+  private def flip[T](l: List[T]): List[T] = {
+    l.reverse
+  }
 
   def getTwist: Twist = twist
 
   def getBuiltUpTwist: Int = builtUpTwist
 
-  private def flip[T](l: List[T]): List[T] = {
-    l.reverse
-    //l.takeRight(2).reverse ++ l.take(2).reverse
-  }
-
   def flip() : this.type = {
-    this.colors = flip(this.colors)
     this.positions = flip(this.positions)
     this.twist = this.twist.flip
     this
+  }
+
+  def headPos: String = this.positions match {
+    case hd :: _ => hd
+    case _ => throw new Exception("Oh no")
   }
 
   private def rotateBackward[T](l: List[T]): List[T] = {
@@ -83,64 +73,20 @@ class Card(num: Int, t: Twist, A: ThreadColor, B:ThreadColor, C: ThreadColor, D:
   }
 
   private def rotateForward[T](l: List[T]): List[T] = {
-    (l.take(3), l.lastOption) match {
+    (l.take(numHoles - 1), l.lastOption) match {
       case (firstThree, Some(lst)) =>
         lst :: firstThree
       case _ => throw CardRotationException(s"List ${l} didn't have a last or a first 3, but rotateBackward requires a nonempty list")
     }
   }
 
-  def headColor: ThreadColor = this.colors match {
-    case hd :: _ => hd
-    case _ => throw new Exception("Oh no")
-  }
-
-  def headPos: String = this.positions match {
-    case hd :: _ => hd
-    case _ => throw new Exception("Oh no")
-  }
-
-  override def equals(obj: Any) = {
-    obj match {
-      case other: Card =>
-        if (other.twist.equals(this.twist)) {
-          var otherPositions = other.positions
-          var otherColors = other.colors
-          var index = 0
-          while (!otherPositions.equals(this.positions) && index < 4) {
-            otherPositions = rotateForward(otherPositions)
-            otherColors = rotateForward(otherColors)
-            index += 1
-          }
-          if (otherPositions.equals(this.positions)) {
-            (this.colors.equals(otherColors))
-          } else {
-            false
-          }
-
-        } else {
-          false
-        }
-      case _ =>
-        false
-    }
-  }
-
-  def lastColor: ThreadColor = this.colors.last
-
-  def lastPos: String = this.positions.last
-
-  def backAtBeginning: Boolean = headPos.equals("A") && getTwist.equals(t)
-
   def turnForward(): this.type = {
-    this.colors = rotateForward(this.colors)
     this.positions = rotateForward(this.positions)
     this.builtUpTwist += 1
     this
   }
 
   def turnBackward(): this.type = {
-    this.colors = rotateBackward(this.colors)
     this.positions = rotateBackward(this.positions)
     this.builtUpTwist -= 1
     this
@@ -149,16 +95,16 @@ class Card(num: Int, t: Twist, A: ThreadColor, B:ThreadColor, C: ThreadColor, D:
   def getNum: Int = num
 
   private def positionsAndColorsString: String = {
-    this.colors.zip(this.positions).foldLeft("")((acc: String, tup: (ThreadColor, String)) =>
-                                             tup match {
-                                               case (c, s) =>
-                                                 (if (acc.isEmpty) {
-                                                   ""
-                                                 } else {
-                                                   acc + " "
-                                                 }) + s"$s:$c"
+    this.positionsToColor.toList.foldLeft("")((acc: String, tup: (String, ThreadColor)) =>
+                                                tup match {
+                                                  case (s, c) =>
+                                                    (if (acc.isEmpty) {
+                                                      ""
+                                                    } else {
+                                                      acc + " "
+                                                    }) + s"$s:$c"
 
-                                             })
+                                                })
   }
 
   def apply(inst: Instruction): this.type = {
@@ -173,8 +119,64 @@ class Card(num: Int, t: Twist, A: ThreadColor, B:ThreadColor, C: ThreadColor, D:
     this
   }
 
+  override def equals(obj: Any) = {
+    obj match {
+      case other: AbstractCard =>
+        if (other.twist.equals(this.twist)) {
+          var otherPositions = other.positions
+          var index = 0
+          while (!otherPositions.equals(this.positions) && index < numHoles) {
+            otherPositions = rotateForward(otherPositions)
+            index += 1
+          }
+          if (otherPositions.equals(this.positions)) {
+            positions.map(pos => positionsToColor.get(pos)).equals(positions.map(pos => other.positionsToColor.get(pos)))
+          } else {
+            false
+          }
+
+        } else {
+          false
+        }
+      case _ =>
+        false
+    }
+  }
+
+
+  def headColor: ThreadColor = this.positionsToColor.get(headPos) match {
+    case Some(hd) => hd
+    case _ => throw new Exception("Oh no")
+  }
+
+  def lastColor: ThreadColor = this.positionsToColor.get(lastPos) match {
+    case Some(c) => c
+    case None => throw new Exception("Oh no")
+  }
+
+  def lastPos: String = this.positions.last
+
+  def backAtBeginning: Boolean = headPos.equals("A") && getTwist.equals(t)
+
   override def toString = s"Card(${getNum}${getTwist} - ${positionsAndColorsString})"
 }
+
+/**
+  * A typical 4-hole card
+  * @param num      the order of the card in the pattern (from left to right)
+  * @param t        the twist direction of the card
+  * @param A        the color in the A position
+  * @param B        the color in the B position
+  * @param C        the color in the C position
+  * @param D        the color in the D position
+  */
+class Card(num: Int, t: Twist, A: ThreadColor, B:ThreadColor, C: ThreadColor, D: ThreadColor) extends AbstractCard(4, num, t, A, B, C, D)
+
+class TriCard(num: Int, t: Twist, A: ThreadColor, B: ThreadColor, C: ThreadColor) extends AbstractCard(3, num, t, A, B, C)
+
+class PentCard(num: Int, t: Twist, A: ThreadColor, B: ThreadColor, C: ThreadColor, D: ThreadColor, E: ThreadColor) extends AbstractCard(5, num, t, A, B, C, D, E)
+
+class HexCard(num: Int, t: Twist, A: ThreadColor, B: ThreadColor, C: ThreadColor, D: ThreadColor, E: ThreadColor, F: ThreadColor) extends AbstractCard(6, num, t, A, B, C, D, E, F)
 
 
 object Card {
@@ -192,7 +194,7 @@ object Card {
   }
 
   def main(args: Array[String]) : Unit  = {
-    import ThreadColor._
+    import cards.ThreadColor._
     val c = new Card(1, Twist.S, White, Black, White, Black)
     println(c)
     println(c.turnBackward())

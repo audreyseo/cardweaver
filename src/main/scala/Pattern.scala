@@ -2,7 +2,8 @@ package org.audreyseo.cardweave
 
 import Pick.pick
 
-import org.audreyseo.cardweave.Card.backgroundColorCardFactory
+import org.audreyseo.cardweave.cards.{Card, Twist}
+import org.audreyseo.cardweave.cards.Card.backgroundColorCardFactory
 
 /**
   * A pattern is a series of picks
@@ -39,7 +40,7 @@ class Pattern(patternPicks: AbstractPick*) extends Iterable[AbstractPick] {
 
 object Pattern {
   def main(args: Array[String]): Unit = {
-    import ThreadColor._
+    import org.audreyseo.cardweave.cards.ThreadColor._
     val cardFactory = backgroundColorCardFactory(Black)
 
     val cards = new PatternCards(cardFactory(Twist.Z),
